@@ -2,10 +2,10 @@ import { NextResponse } from 'next/server';
 import Replicate from 'replicate';
 import { v2 as cloudinary } from 'cloudinary';
 import { createLoggerWithLabel } from '@/app/api/utils/logger';
-import { VideoSettings } from '@/types';
-import { TASKS_MAP } from '@/constants';
+import { ModelSettings } from '@/types';
+import { requiredEnvVars } from '@/constants';
 
-const logger = createLoggerWithLabel('RESTORE_REPLICATE');
+const logger = createLoggerWithLabel('AGE_TRANSFORMATION_REPLICATE');
 
 // Configure Cloudinary
 cloudinary.config({
@@ -14,73 +14,63 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+// Validate required environment variables
+
+for (const envVar of requiredEnvVars) {
+    if (!process.env[envVar]) {
+        logger.error(`Missing required environment variable: ${envVar}`);
+        throw new Error(`Missing required environment variable: ${envVar}`);
+    }
+}
+
 const replicate = new Replicate({
-    auth: process.env.NEXT_PUBLIC_REPLICATE_API_TOKEN,
+    auth: process.env.REPLICATE_API_TOKEN,
 });
 
 export async function POST(request: Request) {
     try {
-        const { settings }: { settings: VideoSettings } = await request.json();
+        const { settings }: { settings: ModelSettings } = await request.json();
+
+        // Validate settings object
+        if (!settings || typeof settings !== 'object') {
+            logger.warn('Invalid settings object');
+            return NextResponse.json(
+                { error: 'Invalid settings provided' },
+                { status: 400 }
+            );
+        }
+
+        if (!settings.image) {
+            logger.warn('Image URL is required');
+            return NextResponse.json(
+                { error: 'Image URL is required' },
+                { status: 400 }
+            );
+        }
+
+        // Validate image URL format
+        try {
+            new URL(settings.image);
+        } catch (e) {
+            logger.warn('Invalid image URL format');
+            return NextResponse.json(
+                { error: 'Invalid image URL format' },
+                { status: 400 }
+            );
+        }
+
+        if (!settings.target_age) {
+            settings.target_age = 'default';
+        }
 
         logger.info(
-            `Upscaling video ${settings.video} with tasks ${settings.tasks}`
+            `Creating age transformation GIF for ${settings.image} with target age ${settings.target_age}`
         );
-
-        if (!settings.video) {
-            logger.warn('Video URL is required');
-            return NextResponse.json(
-                { error: 'Video URL is required' },
-                { status: 400 }
-            );
-        }
-
-        if (
-            settings.tasks ===
-                TASKS_MAP.faceRestorationAndColorizationAndInpainting &&
-            !settings.mask
-        ) {
-            logger.warn('Mask URL is required');
-            return NextResponse.json(
-                { error: 'Mask URL is required' },
-                { status: 400 }
-            );
-        }
-
-        const {
-            seed: seed = -1,
-            tasks = 'face-restoration',
-            video,
-            overlap = 3,
-            decodeChunkSize: decode_chunk_size = 16,
-            i2iNoiseStrength: i2i_noise_strength = 1,
-            noiseAugStrength: noise_aug_strength = 0,
-            numInferenceSteps: num_inference_steps = 30,
-            maxAppearanceGuidanceScale: max_appearance_guidance_scale = 2,
-            minAppearanceGuidanceScale: min_appearance_guidance_scale = 2,
-            mask: mask = undefined,
-        } = settings;
-
-        const input = {
-            seed: Number(seed),
-            tasks,
-            video,
-            overlap,
-            decode_chunk_size,
-            i2i_noise_strength,
-            noise_aug_strength,
-            num_inference_steps,
-            max_appearance_guidance_scale,
-            min_appearance_guidance_scale,
-            ...(tasks ===
-                TASKS_MAP.faceRestorationAndColorizationAndInpainting && {
-                mask,
-            }),
-        };
 
         const prediction = await replicate.predictions.create({
             version:
-                '63512c77555a80ca5c84c590641036ba9f938d38b9a1841ea369780072561373',
-            input,
+                '9222a21c181b707209ef12b5e0d7e94c994b58f01c7b2fec075d2e892362f13c',
+            input: settings,
             webhook: `${process.env.WEBHOOK_URL}/api/v1/replicate/webhook`,
             webhook_events_filter: ['start', 'output', 'completed'],
         });
@@ -95,16 +85,48 @@ export async function POST(request: Request) {
             success: true,
             id: latest.id,
             status: latest.status,
+            webhookUrl: `${process.env.WEBHOOK_URL}/api/v1/replicate/webhook`,
         });
     } catch (error) {
-        logger.error(
-            `Replicate face restoration API error: ${JSON.stringify(error)}`
-        );
+        // Handle specific error types
+        if (error instanceof Error) {
+            logger.error(
+                `Replicate AI Age transformation API error: ${error.message}`
+            );
+
+            if (error.message.includes('auth')) {
+                return NextResponse.json(
+                    { error: 'Authentication failed' },
+                    { status: 401 }
+                );
+            }
+
+            if (error.message.includes('rate')) {
+                return NextResponse.json(
+                    { error: 'Rate limit exceeded' },
+                    { status: 429 }
+                );
+            }
+        } else {
+            logger.error(
+                `Replicate AI Age transformation API error: ${JSON.stringify(error)}`
+            );
+        }
+
         return NextResponse.json(
-            { error: 'Failed to process video' },
+            { error: 'Failed to process image' },
             { status: 500 }
         );
     }
 }
 
 export const maxDuration = 60;
+
+// Configure CORS if needed
+export const config = {
+    api: {
+        bodyParser: {
+            sizeLimit: '10mb',
+        },
+    },
+};

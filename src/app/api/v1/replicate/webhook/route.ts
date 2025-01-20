@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { redisClient, ensureConnection } from '@/app/api/utils/redisClient';
 import { createLoggerWithLabel } from '@/app/api/utils/logger';
-import { TASKS_MAP } from '@/constants';
 
 const logger = createLoggerWithLabel('WEBHOOK_REPLICATE');
 
@@ -24,21 +23,9 @@ async function storePredictionData(predictionId: string, payload: any) {
         // Updated data structure to match the input parameters from the main route
         const data = {
             status: payload.status || 'unknown',
+            image_url: payload.input?.image || '',
             output_url: payload.output ? JSON.stringify(payload.output) : '',
-            // Add all input parameters
-            tasks: payload.input?.tasks || 'face-restoration',
-            num_inference_steps: payload.input?.num_inference_steps || 30,
-            decode_chunk_size: payload.input?.decode_chunk_size || 16,
-            overlap: payload.input?.overlap || 3,
-            noise_aug_strength: payload.input?.noise_aug_strength || 0,
-            min_appearance_guidance:
-                payload.input?.min_appearance_guidance_scale || 2,
-            max_appearance_guidance:
-                payload.input?.max_appearance_guidance_scale || 2,
-            i2i_noise_strength: payload.input?.i2i_noise_strength || 1,
-            seed: payload.input?.seed || '',
-            video_url: payload.input?.video || '',
-            // Existing fields
+            target_age: payload.input?.target_age || 'default',
             created_at: payload.created_at || '',
             completed_at: payload.completed_at || '',
             predict_time: payload.metrics?.predict_time || '',
@@ -46,10 +33,6 @@ async function storePredictionData(predictionId: string, payload: any) {
                 cancel: payload.urls?.cancel || '',
                 get: payload.urls?.get || '',
                 stream: payload.urls?.stream || '',
-            }),
-            ...(payload.input?.tasks ===
-                TASKS_MAP.faceRestorationAndColorizationAndInpainting && {
-                mask: payload.input?.mask,
             }),
         };
 

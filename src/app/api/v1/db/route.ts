@@ -3,12 +3,11 @@ import { createLoggerWithLabel } from '../../utils/logger';
 import { currentUser } from '@clerk/nextjs/server';
 import clientPromise from '@/app/api/utils/mongoClient';
 import { MongoSave } from '@/types';
-import { TASKS_MAP } from '@/constants';
 const logger = createLoggerWithLabel('DB');
 
 export async function POST(request: NextRequest) {
     try {
-        logger.info('Starting to process video information storage request');
+        logger.info('Starting to process image information storage request');
 
         // Validate request body exists
         if (!request.body) {
@@ -32,18 +31,9 @@ export async function POST(request: NextRequest) {
 
         const {
             status,
-            video_url,
-            mask,
+            image_url,
             output_url,
-            seed,
-            noise_aug_strength,
-            i2i_noise_strength,
-            max_appearance_guidance,
-            min_appearance_guidance,
-            tasks,
-            num_inference_steps,
-            decode_chunk_size,
-            overlap,
+            target_age,
             created_at,
             completed_at,
             predict_time,
@@ -51,14 +41,10 @@ export async function POST(request: NextRequest) {
 
         // Validate required fields
         const requiredFields = {
-            video_url,
+            image_url,
+            output_url,
             status,
-            created_at,
-            tasks,
-            ...(tasks ===
-                TASKS_MAP.faceRestorationAndColorizationAndInpainting && {
-                mask,
-            }),
+            predict_time,
         };
 
         const missingFields = Object.entries(requiredFields)
@@ -77,10 +63,10 @@ export async function POST(request: NextRequest) {
         }
 
         // Validate field types and formats
-        if (typeof video_url !== 'string' || !video_url.startsWith('http')) {
-            logger.warn('Invalid video_url format');
+        if (typeof image_url !== 'string' || !image_url.startsWith('http')) {
+            logger.warn('Invalid image_url format');
             return NextResponse.json(
-                { error: 'Invalid video_url format' },
+                { error: 'Invalid image_url format' },
                 { status: 400 }
             );
         }
@@ -128,26 +114,14 @@ export async function POST(request: NextRequest) {
 
         const document = {
             user_id,
-            video_url,
-            ...(tasks ===
-                TASKS_MAP.faceRestorationAndColorizationAndInpainting && {
-                mask,
-            }),
+            image_url,
             output_url,
+            target_age,
             status,
-            created_at: new Date(created_at),
-            completed_at: completed_at ? new Date(completed_at) : null,
-            tasks,
-            num_inference_steps,
-            decode_chunk_size,
-            overlap,
-            noise_aug_strength,
-            min_appearance_guidance,
-            max_appearance_guidance,
-            i2i_noise_strength,
-            seed,
             predict_time,
             updated_at: new Date(),
+            created_at: new Date(created_at),
+            completed_at: completed_at ? new Date(completed_at) : null,
         };
 
         const result = await collection.insertOne(document);
@@ -161,29 +135,29 @@ export async function POST(request: NextRequest) {
         }
 
         logger.info(
-            `Successfully stored video process with id: ${result.insertedId}`
+            `Successfully stored image process with id: ${result.insertedId}`
         );
         return NextResponse.json({
             success: true,
             id: result.insertedId,
-            message: 'Video process stored successfully',
+            message: 'Image process stored successfully',
         });
     } catch (error) {
-        logger.error(`Error storing video process: ${error}`);
+        logger.error(`Error storing image process: ${error}`);
         return NextResponse.json(
             {
                 error: 'Internal server error',
-                message: 'Failed to store video information',
+                message: 'Failed to store image information',
             },
             { status: 500 }
         );
     }
 }
 
-/* to get the information of all the video processes of a user */
+/* to get the information of all the image processes of a user */
 export async function GET() {
     try {
-        logger.info('Starting to process video information retrieval request');
+        logger.info('Starting to process image information retrieval request');
 
         const user = await currentUser();
         if (!user) {
@@ -228,7 +202,7 @@ export async function GET() {
             return NextResponse.json({
                 success: true,
                 data: [],
-                message: 'No video processes found',
+                message: 'No image processes found',
             });
         }
 
@@ -238,14 +212,14 @@ export async function GET() {
         return NextResponse.json({
             success: true,
             data: documents,
-            message: 'Video processes retrieved successfully',
+            message: 'Image processes retrieved successfully',
         });
     } catch (error) {
-        logger.error(`Error retrieving video processes: ${error}`);
+        logger.error(`Error retrieving image processes: ${error}`);
         return NextResponse.json(
             {
                 error: 'Internal server error',
-                message: 'Failed to retrieve video information',
+                message: 'Failed to retrieve image information',
             },
             { status: 500 }
         );

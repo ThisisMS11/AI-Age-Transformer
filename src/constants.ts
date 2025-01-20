@@ -1,24 +1,3 @@
-export const VIDEO_SETTINGS_MAP = {
-    seed: 'seed',
-    tasks: 'tasks',
-    video: 'video',
-    overlap: 'overlap',
-    decodeChunkSize: 'decodeChunkSize',
-    i2iNoiseStrength: 'i2iNoiseStrength',
-    noiseAugStrength: 'noiseAugStrength',
-    numInferenceSteps: 'numInferenceSteps',
-    maxAppearanceGuidanceScale: 'maxAppearanceGuidanceScale',
-    minAppearanceGuidanceScale: 'minAppearanceGuidanceScale',
-    mask: 'mask',
-} as const;
-
-export const TASKS_MAP = {
-    faceRestoration: 'face-restoration',
-    faceRestorationAndColorization: 'face-restoration-and-colorization',
-    faceRestorationAndColorizationAndInpainting:
-        'face-restoration-and-colorization-and-inpainting',
-} as const;
-
 export const STATUS_MAP = {
     default: 'default',
     processing: 'processing',
@@ -34,12 +13,20 @@ export const RETRIES = {
     CLOUDINARY_SERVICE: 5,
 } as const;
 
-export const VIDEO_TYPE = {
+export const IMAGE_TYPE = {
     ORIGINAL: 'original',
-    ENHANCED: 'enhanced',
+    PROCESSED: 'processed',
 } as const;
 
 export const CLOUDINARY_FOLDER = {
-    ORIGINAL: 'task_2_restore_original_videos',
-    ENHANCED: 'task_2_restore_enhanced_videos',
+    ORIGINAL: 'task_3_Age_Transformation_GIFs_Original',
+    ENHANCED: 'task_3_Age_Transformation_GIFs_Enhanced',
 } as const;
+
+export const requiredEnvVars = [
+    'REPLICATE_API_TOKEN',
+    'WEBHOOK_URL',
+    'CLOUDINARY_CLOUD_NAME',
+    'CLOUDINARY_API_KEY',
+    'CLOUDINARY_API_SECRET',
+];

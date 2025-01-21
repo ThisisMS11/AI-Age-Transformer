@@ -79,12 +79,12 @@ export default function ImageTransformer() {
             }
 
             if (
-                typeof settings.target_age === 'number' &&
-                settings.target_age >= 300
+                settings.target_age !== 'default' &&
+                (Number(settings.target_age) > 300 ||
+                    Number(settings.target_age) < 0)
             ) {
                 toast.error('Error', {
-                    description:
-                        'Please Keep Target Age below 300 to avoid distortion',
+                    description: 'Please enter valid age (below <=300)',
                     duration: 3000,
                 });
                 return;
@@ -153,7 +153,7 @@ export default function ImageTransformer() {
         // );
         try {
             const predictionData = await pollPredictionStatus(predictionId);
-            console.log('Prediction Data:', predictionData);
+            // console.log('Prediction Data:', predictionData);
             if (!predictionData) {
                 throw new Error('Failed to get prediction data');
             }
@@ -239,14 +239,18 @@ export default function ImageTransformer() {
                                         <Input
                                             type="number"
                                             value={settings.target_age}
-                                            onChange={(e) =>
+                                            onChange={(e) => {
+                                                const value = e.target.value;
                                                 setSettings((prev) => ({
                                                     ...prev,
-                                                    target_age: e.target.value,
-                                                }))
-                                            }
+                                                    target_age:
+                                                        value === ''
+                                                            ? 'default'
+                                                            : value,
+                                                }));
+                                            }}
                                             placeholder="Random"
-                                            min={10}
+                                            min={0}
                                             max={300}
                                         />
                                         <p className="text-xs text-muted-foreground">

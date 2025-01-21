@@ -71,7 +71,10 @@ const Statistics = ({ data }: { data: PredictionResponse | null }) => {
             // Create a downloadable link
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = 'age-transformed-gif.gif';
+            link.download =
+                data.target_age === 'default'
+                    ? 'age-transformed-gif.gif'
+                    : 'age-transformed-image.png';
             document.body.appendChild(link);
             link.click();
 
@@ -181,7 +184,10 @@ const Statistics = ({ data }: { data: PredictionResponse | null }) => {
                                     }
                                 >
                                     <Download className="w-4 h-4 mr-2" />
-                                    Download GIF
+                                    Download{' '}
+                                    {data.target_age === 'default'
+                                        ? 'GIF'
+                                        : 'Image'}
                                 </Button>
 
                                 <Button

@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-    v2 as cloudinary,
-    UploadApiOptions,
-    UploadApiResponse,
-} from 'cloudinary';
+import { v2 as cloudinary, UploadApiOptions } from 'cloudinary';
 import { createLoggerWithLabel } from '../../utils/logger';
 import { IMAGE_TYPE, CLOUDINARY_FOLDER } from '@/constants';
 

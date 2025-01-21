@@ -84,7 +84,7 @@ export function ImageHistoryModal({
                                     <TableHead>Status</TableHead>
                                     <TableHead>Processing Time</TableHead>
                                     <TableHead>Original Image</TableHead>
-                                    <TableHead>Transformed GIF</TableHead>
+                                    <TableHead>Transformed</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -141,7 +141,11 @@ export function ImageHistoryModal({
                                                     rel="noopener noreferrer"
                                                     className="text-blue-500 hover:text-blue-700"
                                                 >
-                                                    Transformed GIF
+                                                    Transformed{' '}
+                                                    {process.target_age ===
+                                                    'default'
+                                                        ? 'GIF'
+                                                        : 'Image'}
                                                 </a>
                                             </TableCell>
                                         </TableRow>

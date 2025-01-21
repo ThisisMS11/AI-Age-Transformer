@@ -27,6 +27,8 @@ const eslintConfig = [
             // Suppress 'Unexpected any' warnings
             '@typescript-eslint/no-explicit-any': 'off',
 
+            '@next/next/no-img-element': 'off',
+
             // Warn about unused imports
             'unused-imports/no-unused-imports': 'warn',
 

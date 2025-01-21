@@ -52,7 +52,7 @@ export async function POST(request: Request) {
         try {
             new URL(settings.image_url);
         } catch (e) {
-            logger.warn('Invalid image URL format');
+            logger.warn(`Invalid image URL format ${JSON.stringify(e)}`);
             return NextResponse.json(
                 { error: 'Invalid image URL format' },
                 { status: 400 }

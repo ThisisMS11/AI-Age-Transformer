@@ -2,7 +2,6 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Upload, Wand2, XCircle, RefreshCcw } from 'lucide-react';
 import { STATUS_MAP } from '@/constants';
-import Image from 'next/image';
 
 interface VideoPreviewProps {
     status: string;

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { redisClient, ensureConnection } from '@/app/api/utils/redisClient';
 import { createLoggerWithLabel } from '@/app/api/utils/logger';
+import { STATUS_MAP } from '@/constants';
 
 const logger = createLoggerWithLabel('WEBHOOK_REPLICATE');
 
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
     try {
         const payload = await request.json();
 
-        logger.info(`Payload : ${JSON.stringify(payload)}`);
+        // logger.info(`Payload : ${JSON.stringify(payload)}`);
         logger.info(
             `Webhook received for prediction ${payload.id} with status ${payload.status}`
         );
@@ -72,7 +73,11 @@ export async function POST(request: Request) {
         // Add validation for webhook_events_filter events
         if (
             !payload.id ||
-            !['failed', 'processing', 'succeeded'].includes(payload.status)
+            ![
+                STATUS_MAP.failed,
+                STATUS_MAP.processing,
+                STATUS_MAP.succeeded,
+            ].includes(payload.status)
         ) {
             logger.error(`Invalid webhook event: ${JSON.stringify(payload)}`);
             return NextResponse.json(

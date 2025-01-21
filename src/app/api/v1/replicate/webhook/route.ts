@@ -63,6 +63,8 @@ async function storePredictionData(predictionId: string, payload: any) {
 export async function POST(request: Request) {
     try {
         const payload = await request.json();
+
+        logger.info(`Payload : ${JSON.stringify(payload)}`);
         logger.info(
             `Webhook received for prediction ${payload.id} with status ${payload.status}`
         );

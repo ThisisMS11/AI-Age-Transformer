@@ -24,7 +24,7 @@ for (const envVar of requiredEnvVars) {
 }
 
 const replicate = new Replicate({
-    auth: process.env.REPLICATE_API_TOKEN,
+    auth: process.env.NEXT_PUBLIC_REPLICATE_API_TOKEN,
 });
 
 export async function POST(request: Request) {
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
             );
         }
 
-        if (!settings.image) {
+        if (!settings.image_url) {
             logger.warn('Image URL is required');
             return NextResponse.json(
                 { error: 'Image URL is required' },
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
 
         // Validate image URL format
         try {
-            new URL(settings.image);
+            new URL(settings.image_url);
         } catch (e) {
             logger.warn('Invalid image URL format');
             return NextResponse.json(
@@ -64,13 +64,20 @@ export async function POST(request: Request) {
         }
 
         logger.info(
-            `Creating age transformation GIF for ${settings.image} with target age ${settings.target_age}`
+            `Creating age transformation GIF for ${settings.image_url} with target age ${settings.target_age}`
         );
+
+        const input = {
+            image: settings.image_url,
+            target_age: settings.target_age
+                ? String(settings.target_age)
+                : 'default',
+        };
 
         const prediction = await replicate.predictions.create({
             version:
                 '9222a21c181b707209ef12b5e0d7e94c994b58f01c7b2fec075d2e892362f13c',
-            input: settings,
+            input,
             webhook: `${process.env.WEBHOOK_URL}/api/v1/replicate/webhook`,
             webhook_events_filter: ['start', 'output', 'completed'],
         });

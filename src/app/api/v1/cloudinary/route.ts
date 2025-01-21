@@ -14,17 +14,17 @@ cloudinary.config({
 });
 
 const logger = createLoggerWithLabel('CLOUDINARY');
-const validImageTypes = ['image/jpeg', 'image/png', 'image/webp'];
 
-async function isValidImage(url: string): Promise<boolean> {
+const isValidImage = async (url: string) => {
     try {
         const response = await fetch(url, { method: 'HEAD' });
         const contentType = response.headers.get('content-type');
-        return contentType ? validImageTypes.includes(contentType) : false;
-    } catch {
+        return contentType?.startsWith('image/');
+    } catch (error) {
+        logger.error(`Error validating image type: ${JSON.stringify(error)}`);
         return false;
     }
-}
+};
 
 export async function POST(request: NextRequest) {
     const { imageUrl, type } = await request.json();
@@ -61,7 +61,6 @@ export async function POST(request: NextRequest) {
                     fetch_format: 'auto',
                 },
             ],
-            format: 'auto',
             flags: 'preserve_transparency',
             delivery_type: 'upload',
         };

@@ -12,6 +12,8 @@ import {
 import { PredictionResponse } from '@/types';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
+import { STATUS_MAP } from '@/constants';
+import { toast } from 'sonner';
 
 const Statistics = ({ data }: { data: PredictionResponse | null }) => {
     if (!data) {
@@ -43,6 +45,43 @@ const Statistics = ({ data }: { data: PredictionResponse | null }) => {
             </div>
         );
     }
+
+    /* Download the GIF */
+    const downloadGIF = async (url: string | undefined) => {
+        try {
+            if (!url) {
+                toast.error('Failed to Download the GIF', {
+                    description: 'Please try again',
+                    duration: 3000,
+                });
+                return;
+            }
+            // Remove extra quotes from the URL
+            const cleanedUrl = url.replace(/^"|"$/g, '');
+
+            // Fetch the GIF as a blob
+            const response = await fetch(cleanedUrl);
+            if (!response.ok) {
+                throw new Error('Failed to fetch GIF');
+            }
+
+            // Create a blob from the response
+            const blob = await response.blob();
+
+            // Create a downloadable link
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'age-transformed-gif.gif';
+            document.body.appendChild(link);
+            link.click();
+
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+        } catch (error) {
+            console.error('Error downloading GIF:', error);
+            alert('Failed to download the GIF. Please try again.');
+        }
+    };
 
     return (
         <div className="p-2 h-[40%] space-y-3">
@@ -124,55 +163,36 @@ const Statistics = ({ data }: { data: PredictionResponse | null }) => {
                                 </div>
                                 <div>
                                     <p className="text-sm text-muted-foreground">
-                                        Task Type
+                                        Target Age
                                     </p>
                                     <p className="font-medium">
-                                        {data.tasks
-                                            .split('-')
-                                            .map(
-                                                (word) =>
-                                                    word
-                                                        .charAt(0)
-                                                        .toUpperCase() +
-                                                    word.slice(1)
-                                            )
-                                            .join(' ')}
+                                        {data.target_age}
                                     </p>
                                 </div>
                             </div>
                         </div>
 
-                        {data.status === 'succeeded' && (
+                        {data.status === STATUS_MAP.succeeded && (
                             <div className="mt-3 flex gap-4">
                                 <Button
                                     className="flex-1"
-                                    onClick={() => {
-                                        // Create an anchor element
-                                        const link =
-                                            document.createElement('a');
-                                        link.href = data.output_url;
-                                        // Set download attribute to force download
-                                        link.download = 'enhanced-video.mp4';
-                                        // Append to document
-                                        document.body.appendChild(link);
-                                        // Trigger click
-                                        link.click();
-                                        // Clean up
-                                        document.body.removeChild(link);
-                                    }}
+                                    onClick={() =>
+                                        downloadGIF(data?.output_url)
+                                    }
                                 >
                                     <Download className="w-4 h-4 mr-2" />
-                                    Download Enhanced Video
+                                    Download GIF
                                 </Button>
+
                                 <Button
                                     variant="outline"
                                     className="flex-1"
                                     onClick={() =>
-                                        window.open(data.video_url, '_blank')
+                                        window.open(data.image_url, '_blank')
                                     }
                                 >
                                     <Link2 className="w-4 h-4 mr-2" />
-                                    View Original Video
+                                    View Original Image
                                 </Button>
                             </div>
                         )}

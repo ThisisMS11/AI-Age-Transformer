@@ -2,16 +2,16 @@ import { fetchClient } from '../utils/fetchClient';
 import {
     PredictionResponse,
     MongoSave,
-    VideoSettings,
-    VideoProcess,
+    ModelSettings,
+    ImageDocument,
 } from '../types';
 
 export const cloudinaryService = {
-    upload: async (videoUrl: string, type: string) => {
+    upload: async (imageUrl: string, type: string) => {
         try {
             const data = await fetchClient<{ url: string }>('cloudinary', {
                 method: 'POST',
-                body: JSON.stringify({ videoUrl, type }),
+                body: JSON.stringify({ imageUrl, type }),
             });
 
             if (!data.url) {
@@ -21,7 +21,7 @@ export const cloudinaryService = {
             return data;
         } catch (error) {
             console.error('Error uploading to Cloudinary:', error);
-            throw new Error('Failed to upload video to Cloudinary');
+            throw new Error('Failed to upload image to Cloudinary');
         }
     },
 };
@@ -38,16 +38,16 @@ export const databaseService = {
             return data;
         } catch (error) {
             console.error('Failed to save to database:', error);
-            throw new Error('Failed to save video information to database');
+            throw new Error('Failed to save image information to database');
         }
     },
 
     fetchHistory: async () => {
         try {
-            const data = await fetchClient<{ data: VideoProcess[] }>('db', {
+            const data = await fetchClient<{ data: ImageDocument[] }>('db', {
                 method: 'GET',
             });
-            return data.data as VideoProcess[];
+            return data.data as ImageDocument[];
         } catch (error) {
             console.error('Failed to fetch history:', error);
             throw new Error('Failed to fetch history');
@@ -73,7 +73,7 @@ export const predictionService = {
 };
 
 export const replicateService = {
-    processVideo: async (settings: VideoSettings) => {
+    processVideo: async (settings: ModelSettings) => {
         try {
             const data = await fetchClient<{ id: string }>('replicate', {
                 method: 'POST',
@@ -86,8 +86,8 @@ export const replicateService = {
 
             return data;
         } catch (error) {
-            console.error('Video processing error:', error);
-            throw new Error('Failed to start video processing');
+            console.error('Image processing error:', error);
+            throw new Error('Failed to start image processing');
         }
     },
 };

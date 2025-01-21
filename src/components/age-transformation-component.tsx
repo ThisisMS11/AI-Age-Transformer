@@ -1,12 +1,10 @@
 'use client';
 import { useState } from 'react';
-import { useVideoSettings } from '@/hooks/useVideoSettings';
-import { useVideoProcessing } from '@/hooks/useVideoProcessing';
-import VideoUploader from '@/components/VideoUploader';
-import RightSideProcess from '@/components/RightSideProcess';
-import AdvancedSettings from '@/components/AdvancedSettings';
-import { VideoHistoryModal } from './video-history-model';
-import ActionButtons from '@/components/ActionButtons';
+import { useImageProcessing } from '@/hooks/useImageProcessing';
+import ImageUploader from '@/components/image-uploader';
+import RightSideProcess from '@/components/right-side-process';
+import { ImageHistoryModal } from './history-modal';
+import ActionButtons from '@/components/action-buttons';
 import Statistics from '@/components/statistics';
 import {
     Card,
@@ -16,101 +14,77 @@ import {
     TabsTrigger,
     TabsList,
     toast,
+    Label,
+    Input,
 } from '@/imports/Shadcn_imports';
 import { Atom } from 'lucide-react';
-import { useVideoRestoringHandler } from '@/hooks/useVideoRestoringHandler';
+import { useImageTransformingHandler } from '@/hooks/useImageTransformingHandler';
 import { usePredictionHandling } from '@/hooks/usePredictionHandling';
-import { RETRIES, STATUS_MAP, TASKS_MAP } from '@/constants';
-import { PredictionResponse } from '@/types';
+import { RETRIES, STATUS_MAP } from '@/constants';
+import { PredictionResponse, ModelSettings } from '@/types';
+import { WAIT_TIMES } from '@/constants';
 
-export default function VideoGenerator() {
+export default function ImageTransformer() {
     const [historyModalOpen, setHistoryModalOpen] = useState(false);
     const [uploadCareCdnUrl, setUploadCareCdnUrl] = useState<string | null>(
         null
     );
-    const [uploadCareCdnMaskUrl, setUploadCareCdnMaskUrl] = useState<
-        string | null
-    >(null);
 
-    const [uploadMaskKey, setUploadMaskKey] = useState(0);
-
-    const [videoResolution, setVideoResolution] = useState<{
-        width: number;
-        height: number;
-    } | null>(null);
+    const [settings, setSettings] = useState<ModelSettings>({
+        image_url: '',
+        target_age: 'default',
+    });
 
     /* Custom Hooks */
-    const { settings, setSettings, updateSetting } = useVideoSettings();
 
     const {
         status,
         setStatus,
         cloudinaryOriginalUrl,
         setCloudinaryOriginalUrl,
-        enhancedVideoUrl,
-        setEnhancedVideoUrl,
+        enhancedImageUrl,
+        setEnhancedImageUrl,
         setPredictionId,
         finalResponse,
         setFinalResponse,
-        startRestoringVideo,
-    } = useVideoProcessing();
+        startTransformingImage,
+    } = useImageProcessing();
 
     const { pollPredictionStatus, savePredictionData } =
         usePredictionHandling();
-    const { handleProcessingVideo } = useVideoRestoringHandler();
+    const { handleProcessingImage } = useImageTransformingHandler();
 
-    /* To remove the video from the state */
-    const handleRemoveVideo = () => {
-        setEnhancedVideoUrl(null);
+    /* To remove the image from the state */
+    const handleRemoveImage = () => {
+        setEnhancedImageUrl(null);
         setPredictionId(null);
         setStatus(STATUS_MAP.default);
         setUploadCareCdnUrl(null);
         setCloudinaryOriginalUrl(null);
-        setSettings((prev) => ({
-            ...prev,
-            video: undefined,
-        }));
+        setSettings({
+            image_url: undefined,
+            target_age: 'default',
+        });
     };
 
-    /* on mask upload */
-    const onMaskUpload = (info: any) => {
-        /* check if the resolution is the same as the original video */
-        if (videoResolution) {
-            const imageWidth = Number(info.fileInfo?.imageInfo?.width);
-            const imageHeight = Number(info.fileInfo?.imageInfo?.height);
-            if (
-                videoResolution.width !== imageWidth ||
-                videoResolution.height !== imageHeight
-            ) {
-                toast.error('Error', {
-                    description: `Mask resolution must be the same as the original video ${videoResolution.width}x${videoResolution.height}. Please upload another mask`,
-                    duration: 3000,
-                });
-                setUploadMaskKey((prev) => prev + 1);
-            } else {
-                setUploadCareCdnMaskUrl(info.cdnUrl);
-            }
-        }
-    };
-
-    /* Start processing video */
-    const startProcessingVideo = async () => {
+    /* Start processing image */
+    const startProcessingImage = async () => {
         try {
             if (!uploadCareCdnUrl) {
                 toast.error('Error', {
-                    description: 'No video URL provided',
+                    description: 'No image URL provided',
                     duration: 3000,
                 });
                 return;
             }
 
             if (
-                settings.tasks ===
-                    TASKS_MAP.faceRestorationAndColorizationAndInpainting &&
-                !uploadCareCdnMaskUrl
+                typeof settings.target_age === 'number' &&
+                settings.target_age >= 300
             ) {
                 toast.error('Error', {
-                    description: 'No mask URL provided',
+                    description:
+                        'Please Keep Target Age below 300 to avoid distortion',
                     duration: 3000,
                 });
                 return;
@@ -118,17 +92,16 @@ export default function VideoGenerator() {
 
             const args = {
                 uploadCareCdnUrl,
-                uploadCareCdnMaskUrl,
                 cloudinaryOriginalUrl,
                 setCloudinaryOriginalUrl,
                 setStatus,
                 settings,
                 setSettings,
-                startRestoringVideo,
+                startTransformingImage,
             };
 
-            /* upload the video to cloudinary and start the prediction */
-            const predictionId = await handleProcessingVideo(args);
+            /* upload the image to cloudinary and start the prediction */
+            const predictionId = await handleProcessingImage(args);
 
             if (predictionId) {
                 setPredictionId(predictionId);
@@ -137,7 +110,11 @@ export default function VideoGenerator() {
                 throw new Error('Failed to get prediction ID');
             }
         } catch (error) {
-            console.error('Error in startProcessingVideo:', error);
+            console.error('Error in startProcessingImage:', error);
+            toast.error('Error', {
+                description: `Error in startProcessingImage`,
+                duration: 3000,
+            });
             setStatus(STATUS_MAP.error);
         }
     };
@@ -151,15 +128,15 @@ export default function VideoGenerator() {
         await savePredictionData(data, outputUrl);
         setStatus(isSuccess ? STATUS_MAP.succeeded : STATUS_MAP.failed);
         setFinalResponse(data);
-        setEnhancedVideoUrl(outputUrl ? outputUrl : null);
+        setEnhancedImageUrl(outputUrl ? outputUrl : null);
 
         if (isSuccess) {
-            toast.success('Video Restored Successfully', {
-                description: 'Video Restored Successfully',
+            toast.success('Image Transformed Successfully', {
+                description: 'Image Transformed Successfully',
                 duration: 3000,
             });
         } else {
-            toast.error('Failed to restore the video', {
+            toast.error('Failed to transform the image', {
                 description: 'Please try again',
                 duration: 3000,
             });
@@ -176,7 +153,7 @@ export default function VideoGenerator() {
         // );
         try {
             const predictionData = await pollPredictionStatus(predictionId);
-            // console.log('Prediction Data:', predictionData);
+            console.log('Prediction Data:', predictionData);
             if (!predictionData) {
                 throw new Error('Failed to get prediction data');
             }
@@ -199,12 +176,12 @@ export default function VideoGenerator() {
                         );
                         setStatus(STATUS_MAP.processing);
                         setTimeout(() => {
-                            startProcessingVideo();
+                            startProcessingImage();
                             handlePredictionResults(
                                 predictionId,
                                 ReplicateRetryCount + 1
                             );
-                        }, 8000);
+                        }, WAIT_TIMES.REPLICATE_SERVICE_RETRY);
                     } else {
                         console.log('Failed after 5 retry attempts');
                         await handlePredictionFinalResult(predictionData);
@@ -219,7 +196,7 @@ export default function VideoGenerator() {
                                 predictionId,
                                 ReplicateRetryCount
                             ),
-                        8000
+                        WAIT_TIMES.PREDICTION_SERVICE
                     );
             }
         } catch (error) {
@@ -235,37 +212,56 @@ export default function VideoGenerator() {
                     <TabsList className="grid w-full grid-cols-1">
                         <TabsTrigger value="text" className="flex gap-2">
                             <Atom className="w-4 h-4" />
-                            Video Face Restoration
+                            AI Age Transformation
                         </TabsTrigger>
                     </TabsList>
                 </Tabs>
 
                 <div className="flex w-full lg:h-[93%] mt-4 gap-2 flex-col lg:flex-row ">
                     {/* Left Side */}
-                    <div className="flex-1 p-1 border-r lg:w-[35%] h-full">
+                    <div className="flex-1 p-1 border-r lg:w-[35%] h-full ">
                         <Card className="h-full">
-                            <CardContent className="p-1  h-full">
-                                <VideoUploader
+                            <CardContent className="p-2  h-full">
+                                <ImageUploader
                                     uploadCareCdnUrl={uploadCareCdnUrl}
                                     onUploadSuccess={setUploadCareCdnUrl}
-                                    onRemoveVideo={handleRemoveVideo}
-                                    setVideoResolution={setVideoResolution}
+                                    onRemoveImage={handleRemoveImage}
                                 />
 
                                 <Separator className="my-2" />
 
-                                <AdvancedSettings
-                                    settings={settings}
-                                    onUpdateSetting={updateSetting}
-                                    onMaskUpload={onMaskUpload}
-                                    uploadMaskKey={uploadMaskKey}
-                                />
+                                {/* Enter the target age  */}
+                                <div className="p-2 h-[43%]">
+                                    <h2 className="text-xl mb-4">Settings</h2>
+
+                                    <div className="space-y-2">
+                                        <Label>Target Age (Optional)</Label>
+                                        <Input
+                                            type="number"
+                                            value={settings.target_age}
+                                            onChange={(e) =>
+                                                setSettings((prev) => ({
+                                                    ...prev,
+                                                    target_age: e.target.value,
+                                                }))
+                                            }
+                                            placeholder="Random"
+                                            min={10}
+                                            max={300}
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            Age of the output image, when left
+                                            blank a gif for age from 0, 10,
+                                            20,...,to 100 will be displayed
+                                        </p>
+                                    </div>
+                                </div>
 
                                 <Separator className="my-2" />
 
                                 <ActionButtons
                                     status={status}
-                                    onProcess={startProcessingVideo}
+                                    onProcess={startProcessingImage}
                                     onHistory={() => setHistoryModalOpen(true)}
                                 />
                             </CardContent>
@@ -276,8 +272,8 @@ export default function VideoGenerator() {
                     <div className="flex flex-col lg:w-[65%] h-full lg:border-none lg:rounded-md mt-14 lg:mt-0 w-[95%]  mx-auto">
                         <RightSideProcess
                             status={status}
-                            enhancedVideoUrl={enhancedVideoUrl}
-                            onRetry={startProcessingVideo}
+                            transformedGIFUrl={enhancedImageUrl}
+                            onRetry={startProcessingImage}
                         />
 
                         {(status === STATUS_MAP.succeeded ||
@@ -287,7 +283,7 @@ export default function VideoGenerator() {
                     </div>
                 </div>
 
-                <VideoHistoryModal
+                <ImageHistoryModal
                     open={historyModalOpen}
                     onOpenChange={setHistoryModalOpen}
                 />

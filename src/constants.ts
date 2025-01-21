@@ -24,9 +24,15 @@ export const CLOUDINARY_FOLDER = {
 } as const;
 
 export const requiredEnvVars = [
-    'REPLICATE_API_TOKEN',
+    'NEXT_PUBLIC_REPLICATE_API_TOKEN',
     'WEBHOOK_URL',
     'CLOUDINARY_CLOUD_NAME',
     'CLOUDINARY_API_KEY',
     'CLOUDINARY_API_SECRET',
 ];
+
+export const WAIT_TIMES = {
+    CLOUDINARY_SERVICE: 5000,
+    REPLICATE_SERVICE_RETRY: 8000,
+    PREDICTION_SERVICE: 5000,
+} as const;

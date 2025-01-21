@@ -1,12 +1,12 @@
-import { PredictionResponse, VideoSettings } from '@/types';
+import { PredictionResponse, ModelSettings } from '@/types';
 import { useState } from 'react';
 import { replicateService } from '@/services/api';
 import { STATUS_MAP } from '@/constants';
 
-export const useVideoProcessing = () => {
+export const useImageProcessing = () => {
     const [predictionId, setPredictionId] = useState<string | null>(null);
     const [status, setStatus] = useState<string>(STATUS_MAP.default);
-    const [enhancedVideoUrl, setEnhancedVideoUrl] = useState<string | null>(
+    const [enhancedImageUrl, setEnhancedImageUrl] = useState<string | null>(
         null
     );
     const [cloudinaryOriginalUrl, setCloudinaryOriginalUrl] = useState<
@@ -15,15 +15,15 @@ export const useVideoProcessing = () => {
     const [finalResponse, setFinalResponse] =
         useState<PredictionResponse | null>(null);
 
-    const validateSettings = (settings: VideoSettings): string | null => {
-        if (!settings.video) return 'No video URL provided';
+    const validateSettings = (settings: ModelSettings): string | null => {
+        if (!settings.image_url) return 'No image URL provided';
         if (!process.env.NEXT_PUBLIC_APP_URL)
             return 'App URL environment variable is not configured';
         return null;
     };
 
-    const startRestoringVideo = async (
-        settings: VideoSettings
+    const startTransformingImage = async (
+        settings: ModelSettings
     ): Promise<string> => {
         const validationError = validateSettings(settings);
         if (validationError) {
@@ -43,9 +43,9 @@ export const useVideoProcessing = () => {
             const message =
                 error instanceof Error
                     ? error.message
-                    : 'Failed to restore video';
-            console.error('Restoration error:', message);
-            throw new Error(`Error starting restoration : ${message}`);
+                    : 'Failed to process image';
+            console.error('Transformation error:', message);
+            throw new Error(`Error starting transformation : ${message}`);
         }
     };
 
@@ -54,11 +54,11 @@ export const useVideoProcessing = () => {
         setStatus,
         predictionId,
         setPredictionId,
-        enhancedVideoUrl,
-        setEnhancedVideoUrl,
+        enhancedImageUrl,
+        setEnhancedImageUrl,
         cloudinaryOriginalUrl,
         setCloudinaryOriginalUrl,
-        startRestoringVideo,
+        startTransformingImage,
         finalResponse,
         setFinalResponse,
     };

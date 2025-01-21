@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { STATUS_MAP } from '@/constants';
 import { Wand2, RotateCw, History } from 'lucide-react';
 
 interface ActionButtonsProps {
@@ -21,19 +22,24 @@ export default function ActionButtons({
                 disabled={['uploading', 'processing'].includes(status)}
             >
                 {/* Icon based on status */}
-                {['processing', 'uploading', 'default'].includes(status) && (
-                    <Wand2 className="w-4 h-4 mr-2" />
+                {[
+                    STATUS_MAP.default,
+                    STATUS_MAP.processing,
+                    STATUS_MAP.uploading,
+                    STATUS_MAP.succeeded,
+                ].includes(status as any) && <Wand2 className="w-4 h-4 mr-2" />}
+                {status === STATUS_MAP.failed && (
+                    <RotateCw className="w-4 h-4 mr-2" />
                 )}
-                {status === 'failed' && <RotateCw className="w-4 h-4 mr-2" />}
 
                 {/* Button text based on status */}
                 {{
-                    default: 'Restore',
-                    uploading: 'Uploading Video...',
-                    processing: 'Restoring Video...',
+                    default: 'Transform',
+                    uploading: 'Uploading Image...',
+                    processing: 'Transforming Image...',
                     failed: 'Retry...',
-                    succeeded: 'Restore Video',
-                }[status] || 'Restore Video'}
+                    succeeded: 'Transformed Image',
+                }[status] || 'Transform Image'}
             </Button>
 
             <Button className="flex-1 rounded-lg" onClick={onHistory}>

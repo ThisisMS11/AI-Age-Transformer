@@ -2,16 +2,17 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Upload, Wand2, XCircle, RefreshCcw } from 'lucide-react';
 import { STATUS_MAP } from '@/constants';
+import Image from 'next/image';
 
 interface VideoPreviewProps {
     status: string;
-    enhancedVideoUrl: string | null;
+    transformedGIFUrl: string | null;
     onRetry: () => void;
 }
 
 export default function RightSideProcess({
     status,
-    enhancedVideoUrl,
+    transformedGIFUrl,
     onRetry,
 }: VideoPreviewProps) {
     switch (status) {
@@ -22,7 +23,7 @@ export default function RightSideProcess({
                         <Upload className="w-10 h-10 text-muted-foreground" />
                     </div>
                     <h2 className="text-2xl font-semibold">
-                        Uploading Video...
+                        Uploading Image...
                     </h2>
                     <Progress value={33} className="w-[65%] mx-auto" />
                 </div>
@@ -34,7 +35,7 @@ export default function RightSideProcess({
                         <Wand2 className="w-10 h-10 text-muted-foreground" />
                     </div>
                     <h2 className="text-2xl font-semibold">
-                        Restoring Video...
+                        Transforming Image...
                     </h2>
                     <Progress value={66} className="w-[65%] mx-auto" />
                 </div>
@@ -42,18 +43,18 @@ export default function RightSideProcess({
         case STATUS_MAP.succeeded:
             return (
                 <div className="h-[60%]">
-                    {enhancedVideoUrl ? (
-                        <video
-                            className="w-full aspect-video bg-muted rounded-lg h-full"
-                            controls
-                        >
-                            <source src={enhancedVideoUrl} type="video/mp4" />
-                            Your browser does not support the video tag.
-                        </video>
+                    {transformedGIFUrl ? (
+                        <div className="relative w-full h-full bg-muted rounded-lg">
+                            <img
+                                src={transformedGIFUrl}
+                                alt="Transformed GIF"
+                                className="rounded-lg h-full w-full object-contain"
+                            />
+                        </div>
                     ) : (
                         <div className="h-full flex items-center justify-center">
                             <p className="text-muted-foreground">
-                                No video found
+                                No GIF found
                             </p>
                         </div>
                     )}
@@ -106,10 +107,11 @@ export default function RightSideProcess({
                                 <Wand2 className="w-10 h-10 text-muted-foreground" />
                             </div>
                             <h2 className="text-2xl font-semibold">
-                                Ready to Restore the Quality of Your Video
+                                Ready to create AI Generated Age Transformation
+                                GIF
                             </h2>
                             <p className="text-muted-foreground">
-                                Upload a video and restore its quality
+                                Upload a image and generate your GIF
                             </p>
                         </div>
                     </div>

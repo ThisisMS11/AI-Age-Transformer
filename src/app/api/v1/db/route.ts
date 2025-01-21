@@ -3,6 +3,7 @@ import { createLoggerWithLabel } from '../../utils/logger';
 import { currentUser } from '@clerk/nextjs/server';
 import clientPromise from '@/app/api/utils/mongoClient';
 import { MongoSave } from '@/types';
+import { STATUS_MAP } from '@/constants';
 const logger = createLoggerWithLabel('DB');
 
 export async function POST(request: NextRequest) {
@@ -42,9 +43,11 @@ export async function POST(request: NextRequest) {
         // Validate required fields
         const requiredFields = {
             image_url,
-            output_url,
             status,
             predict_time,
+            ...(status === STATUS_MAP.succeeded && {
+                output_url,
+            }),
         };
 
         const missingFields = Object.entries(requiredFields)

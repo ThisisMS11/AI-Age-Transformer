@@ -19,3 +19,6 @@ export const formatDuration = (predictTime: string) => {
     }
     return `${seconds.toFixed(1)}s`;
 };
+
+export const delay = (ms: number) =>
+    new Promise((resolve) => setTimeout(resolve, ms));

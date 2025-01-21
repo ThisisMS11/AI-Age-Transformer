@@ -33,6 +33,6 @@ export const requiredEnvVars = [
 
 export const WAIT_TIMES = {
     CLOUDINARY_SERVICE: 5000,
-    REPLICATE_SERVICE_RETRY: 8000,
+    REPLICATE_SERVICE_RETRY: 5000,
     PREDICTION_SERVICE: 5000,
 } as const;

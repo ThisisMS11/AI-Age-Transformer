@@ -2,6 +2,8 @@ import { STATUS_MAP, IMAGE_TYPE } from '@/constants';
 import { cloudinaryService } from '@/services/api';
 import { ModelSettings } from '@/types';
 import { WAIT_TIMES } from '@/constants';
+import { RefObject } from 'react';
+import {} from 'react';
 
 interface Args {
     uploadCareCdnUrl: string;
@@ -11,6 +13,7 @@ interface Args {
     settings: ModelSettings;
     setSettings: (settings: ModelSettings) => void;
     startTransformingImage: (settings: ModelSettings) => Promise<string>;
+    cloudinaryUrlRef: RefObject<string | null>;
 }
 
 export const useImageTransformingHandler = () => {
@@ -24,11 +27,18 @@ export const useImageTransformingHandler = () => {
             settings,
             setSettings,
             startTransformingImage,
+            cloudinaryUrlRef,
         } = args;
 
+        // console.log({
+        //     uploadCareCdnUrl,
+        //     cloudinaryOriginalUrl,
+        //     ref: cloudinaryUrlRef.current,
+        // });
+
         /* upload the image to cloudinary if not already uploaded */
-        let uploadedUrl = cloudinaryOriginalUrl;
-        if (!cloudinaryOriginalUrl) {
+        let uploadedUrl = cloudinaryUrlRef.current;
+        if (!cloudinaryUrlRef.current) {
             setStatus(STATUS_MAP.uploading);
             try {
                 const uploadResult = await cloudinaryService.upload(
@@ -38,6 +48,7 @@ export const useImageTransformingHandler = () => {
                 if (!uploadResult?.url) {
                     throw new Error('Failed to get upload URL from Cloudinary');
                 }
+                cloudinaryUrlRef.current = uploadResult.url;
                 uploadedUrl = uploadResult.url;
                 setCloudinaryOriginalUrl(uploadedUrl);
 
@@ -82,7 +93,12 @@ export const useImageTransformingHandler = () => {
             // If cloudinaryOriginalUrl exists, use existing settings
             try {
                 setStatus(STATUS_MAP.processing);
-                const predictionId = await startTransformingImage(settings);
+                const updatedSettings = {
+                    ...settings,
+                    image_url: cloudinaryUrlRef.current,
+                };
+                const predictionId =
+                    await startTransformingImage(updatedSettings);
                 if (!predictionId) {
                     throw new Error('No prediction ID returned');
                 }

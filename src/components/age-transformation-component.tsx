@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useImageProcessing } from '@/hooks/useImageProcessing';
 import ImageUploader from '@/components/image-uploader';
 import RightSideProcess from '@/components/right-side-process';
@@ -23,6 +23,22 @@ import { usePredictionHandling } from '@/hooks/usePredictionHandling';
 import { RETRIES, STATUS_MAP } from '@/constants';
 import { PredictionResponse, ModelSettings } from '@/types';
 import { WAIT_TIMES } from '@/constants';
+import { delay } from '@/utils/utilFunctions';
+
+// Separate retry configuration
+const RETRY_CONFIG = {
+    MAX_RETRIES: RETRIES.REPLICATE_SERVICE,
+    BASE_DELAY: WAIT_TIMES.REPLICATE_SERVICE_RETRY,
+    MAX_DELAY: 32000,
+    JITTER_FACTOR: 0.2, // Add 20% random jitter
+};
+
+const calculateBackoff = (retryCount: number): number => {
+    const exponentialDelay = RETRY_CONFIG.BASE_DELAY * Math.pow(2, retryCount);
+    const maxDelay = Math.min(exponentialDelay, RETRY_CONFIG.MAX_DELAY);
+    const jitter = maxDelay * RETRY_CONFIG.JITTER_FACTOR * Math.random();
+    return maxDelay + jitter;
+};
 
 export default function ImageTransformer() {
     const [historyModalOpen, setHistoryModalOpen] = useState(false);
@@ -30,10 +46,19 @@ export default function ImageTransformer() {
         null
     );
 
+    const [_isRetrying, setIsRetrying] = useState(false);
+    const [hasFailed , setHasFailed] = useState(false);
+
     const [settings, setSettings] = useState<ModelSettings>({
         image_url: '',
         target_age: 'default',
     });
+
+    /* persistent states */
+    const retryAttemptsRef = useRef(0);
+    const cloudinaryUrlRef = useRef<string | null>(null);
+    const isRetryingRef = useRef(false);
+    const predictionIdRef = useRef<string | null>(null);
 
     /* Custom Hooks */
 
@@ -61,6 +86,10 @@ export default function ImageTransformer() {
         setStatus(STATUS_MAP.default);
         setUploadCareCdnUrl(null);
         setCloudinaryOriginalUrl(null);
+        cloudinaryUrlRef.current = null;
+        retryAttemptsRef.current = 0;
+        isRetryingRef.current = false;
+        setIsRetrying(false);
         setSettings({
             image_url: undefined,
             target_age: 'default',
@@ -98,6 +127,7 @@ export default function ImageTransformer() {
                 settings,
                 setSettings,
                 startTransformingImage,
+                cloudinaryUrlRef,
             };
 
             /* upload the image to cloudinary and start the prediction */
@@ -105,6 +135,7 @@ export default function ImageTransformer() {
 
             if (predictionId) {
                 setPredictionId(predictionId);
+                predictionIdRef.current = predictionId;
                 handlePredictionResults(predictionId);
             } else {
                 throw new Error('Failed to get prediction ID');
@@ -143,65 +174,94 @@ export default function ImageTransformer() {
         }
     };
 
-    /* handle prediction results */
-    const handlePredictionResults = async (
-        predictionId: string,
-        ReplicateRetryCount: number = 0
-    ) => {
-        // console.log(
-        //     `Calling handlePredictionResults with predictionId: ${predictionId}`
-        // );
-        try {
-            const predictionData = await pollPredictionStatus(predictionId);
-            // console.log('Prediction Data:', predictionData);
-            if (!predictionData) {
-                throw new Error('Failed to get prediction data');
+    const handlePredictionResults = async (predictionId: string) => {
+        while (true && !hasFailed) {
+            if (isRetryingRef.current) {
+                // console.log('Retry already in progress, skipping...');
+                await delay(5000);
+                continue;
             }
 
-            const outputUrl = predictionData.output_url
-                ? JSON.parse(predictionData.output_url)
-                : null;
-            switch (predictionData.status) {
-                case STATUS_MAP.succeeded:
+            try {
+                console.info(`Prediction ID : ${predictionId}`);
+
+                const predictionData = await pollPredictionStatus(predictionId);
+
+                if (!predictionData) {
+                    throw new Error('No prediction data received');
+                }
+
+                const outputUrl = predictionData.output_url
+                    ? JSON.parse(predictionData.output_url)
+                    : null;
+
+                if (predictionData.status === STATUS_MAP.succeeded) {
+                    // Reset retry attempts on success
+                    retryAttemptsRef.current = 0;
+                    isRetryingRef.current = false;
+                    setIsRetrying(false);
                     await handlePredictionFinalResult(
                         predictionData,
                         outputUrl
                     );
-                    break;
+                    return;
+                } else if (predictionData.status === STATUS_MAP.failed) {
+                    if (
+                        retryAttemptsRef.current < RETRY_CONFIG.MAX_RETRIES &&
+                        !isRetryingRef.current
+                    ) {
+                        isRetryingRef.current = true;
+                        setIsRetrying(true);
+                        retryAttemptsRef.current += 1;
 
-                case STATUS_MAP.failed:
-                    if (ReplicateRetryCount < RETRIES.REPLICATE_SERVICE) {
                         console.log(
-                            `Replicate Service Retry attempt ${ReplicateRetryCount + 1} of ${RETRIES.REPLICATE_SERVICE}`
+                            `Initiating retry ${retryAttemptsRef.current}/${RETRY_CONFIG.MAX_RETRIES}`
                         );
                         setStatus(STATUS_MAP.processing);
-                        setTimeout(() => {
-                            startProcessingImage();
-                            handlePredictionResults(
-                                predictionId,
-                                ReplicateRetryCount + 1
-                            );
-                        }, WAIT_TIMES.REPLICATE_SERVICE_RETRY);
-                    } else {
-                        console.log('Failed after 5 retry attempts');
-                        await handlePredictionFinalResult(predictionData);
-                    }
-                    break;
 
-                default:
+                        const backoffDelay = calculateBackoff(
+                            retryAttemptsRef.current - 1
+                        );
+                        // console.log({ backoffDelay });
+                        await delay(backoffDelay);
+
+                        // Use existing cloudinary URL
+                        if (cloudinaryUrlRef.current) {
+                            const updatedSettings = {
+                                ...settings,
+                                image_url: cloudinaryUrlRef.current,
+                            };
+                            setSettings(updatedSettings);
+                        }
+
+                        await startProcessingImage();
+
+                        /* this is to let replicate start processing the image again */
+                        await delay(10000);
+
+                        // console.log('I am still not printed');
+                        isRetryingRef.current = false;
+                        setIsRetrying(false);
+                    } else {
+                        console.log(
+                            `Failed after ${retryAttemptsRef.current} retries or retry in progress`
+                        );
+                        // Reset for future attempts
+                        isRetryingRef.current = false;
+                        setIsRetrying(false);
+                        setHasFailed(true);
+                        await handlePredictionFinalResult(predictionData);
+                        return;
+                    }
+                } else {
+                    // Default case (handles processing and any other status)
                     setStatus(STATUS_MAP.processing);
-                    setTimeout(
-                        () =>
-                            handlePredictionResults(
-                                predictionId,
-                                ReplicateRetryCount
-                            ),
-                        WAIT_TIMES.PREDICTION_SERVICE
-                    );
+                    await delay(WAIT_TIMES.PREDICTION_SERVICE);
+                }
+            } catch (error) {
+                console.error('Error during prediction polling:', error);
+                await delay(1000);
             }
-        } catch (error) {
-            console.error('Error in handlePredictionResults:', error);
-            handlePredictionResults(predictionId, ReplicateRetryCount);
         }
     };
 

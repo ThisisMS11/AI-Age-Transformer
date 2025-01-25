@@ -1,19 +1,25 @@
-import { PredictionResponse, ModelSettings } from '@/types';
-import { useState } from 'react';
-import { replicateService } from '@/services/api';
-import { STATUS_MAP } from '@/constants';
+import { ModelSettings } from '@/types';
+import { useRef, useState } from 'react';
+import { cloudinaryService, replicateService } from '@/services/api';
+import { IMAGE_TYPE, STATUS_MAP, WAIT_TIMES } from '@/constants';
+
+export interface Args {
+    uploadCareCdnUrl: string;
+    settings: ModelSettings;
+    setSettings: (settings: ModelSettings) => void;
+}
 
 export const useImageProcessing = () => {
-    const [predictionId, setPredictionId] = useState<string | null>(null);
+    const [_predictionId, setPredictionId] = useState<string | null>(null);
+    const predictionIdRef = useRef<string | null>(null);
     const [status, setStatus] = useState<string>(STATUS_MAP.default);
     const [enhancedImageUrl, setEnhancedImageUrl] = useState<string | null>(
         null
     );
-    const [cloudinaryOriginalUrl, setCloudinaryOriginalUrl] = useState<
+    const [_cloudinaryOriginalUrl, setCloudinaryOriginalUrl] = useState<
         string | null
     >(null);
-    const [finalResponse, setFinalResponse] =
-        useState<PredictionResponse | null>(null);
+    const cloudinaryUrlRef = useRef<string | null>(null);
 
     const validateSettings = (settings: ModelSettings): string | null => {
         if (!settings.image_url) return 'No image URL provided';
@@ -49,17 +55,92 @@ export const useImageProcessing = () => {
         }
     };
 
+    const handleProcessingImage = async (args: Args) => {
+        const { uploadCareCdnUrl, settings, setSettings } = args;
+
+        /* upload the image to cloudinary if not already uploaded */
+        let uploadedUrl = cloudinaryUrlRef.current;
+        if (!cloudinaryUrlRef.current) {
+            setStatus(STATUS_MAP.uploading);
+            try {
+                const uploadResult = await cloudinaryService.upload(
+                    uploadCareCdnUrl,
+                    IMAGE_TYPE.ORIGINAL
+                );
+                if (!uploadResult?.url) {
+                    throw new Error('Failed to get upload URL from Cloudinary');
+                }
+                cloudinaryUrlRef.current = uploadResult.url;
+                uploadedUrl = uploadResult.url;
+                setCloudinaryOriginalUrl(uploadedUrl);
+
+                // Create updated settings with new image URL
+                const updatedSettings = {
+                    ...settings,
+                    image_url: uploadedUrl,
+                };
+
+                setSettings(updatedSettings);
+
+                /* transform the image */
+                try {
+                    setStatus(STATUS_MAP.processing);
+
+                    /* Adding some delay time to give cloudinary time to upload the image */
+                    await new Promise((resolve) =>
+                        setTimeout(resolve, WAIT_TIMES.CLOUDINARY_SERVICE)
+                    );
+
+                    // Use updated settings directly instead of relying on state
+                    const predictionId =
+                        await startTransformingImage(updatedSettings);
+                    if (!predictionId) {
+                        throw new Error('No prediction ID returned');
+                    }
+                    return predictionId;
+                } catch (error) {
+                    console.error('Error transforming image:', error);
+                    throw new Error(`Error transforming image : ${error}`);
+                }
+            } catch (error) {
+                console.error(
+                    'Error uploading original image to cloudinary:',
+                    error
+                );
+                throw new Error(
+                    `Error uploading original image to cloudinary : ${error}`
+                );
+            }
+        } else {
+            // If cloudinaryOriginalUrl exists, use existing settings
+            try {
+                setStatus(STATUS_MAP.processing);
+                const updatedSettings = {
+                    ...settings,
+                    image_url: cloudinaryUrlRef.current,
+                };
+                const predictionId =
+                    await startTransformingImage(updatedSettings);
+                if (!predictionId) {
+                    throw new Error('No prediction ID returned');
+                }
+                return predictionId;
+            } catch (error) {
+                console.error('Error Creating GIF:', error);
+                throw new Error(`Error Creating GIF : ${error}`);
+            }
+        }
+    };
+
     return {
         status,
         setStatus,
-        predictionId,
         setPredictionId,
         enhancedImageUrl,
         setEnhancedImageUrl,
-        cloudinaryOriginalUrl,
         setCloudinaryOriginalUrl,
-        startTransformingImage,
-        finalResponse,
-        setFinalResponse,
+        predictionIdRef,
+        handleProcessingImage,
+        cloudinaryUrlRef,
     };
 };

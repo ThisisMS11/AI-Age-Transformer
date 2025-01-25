@@ -1,5 +1,5 @@
 'use client';
-import { useRef, useState } from 'react';
+import {  useRef, useState } from 'react';
 import { useImageProcessing } from '@/hooks/useImageProcessing';
 import ImageUploader from '@/components/image-uploader';
 import RightSideProcess from '@/components/right-side-process';
@@ -18,7 +18,6 @@ import {
     Input,
 } from '@/imports/Shadcn_imports';
 import { Atom } from 'lucide-react';
-import { useImageTransformingHandler } from '@/hooks/useImageTransformingHandler';
 import { usePredictionHandling } from '@/hooks/usePredictionHandling';
 import { RETRIES, STATUS_MAP } from '@/constants';
 import { PredictionResponse, ModelSettings } from '@/types';
@@ -40,14 +39,21 @@ const calculateBackoff = (retryCount: number): number => {
     return maxDelay + jitter;
 };
 
+export interface Args {
+    settings: ModelSettings;
+    setSettings: (settings: ModelSettings) => void;
+}
+
 export default function ImageTransformer() {
     const [historyModalOpen, setHistoryModalOpen] = useState(false);
     const [uploadCareCdnUrl, setUploadCareCdnUrl] = useState<string | null>(
         null
     );
+    const [finalResponse, setFinalResponse] =
+        useState<PredictionResponse | null>(null);
 
     const [_isRetrying, setIsRetrying] = useState(false);
-    const [hasFailed , setHasFailed] = useState(false);
+    const [hasFailed, setHasFailed] = useState(false);
 
     const [settings, setSettings] = useState<ModelSettings>({
         image_url: '',
@@ -56,28 +62,23 @@ export default function ImageTransformer() {
 
     /* persistent states */
     const retryAttemptsRef = useRef(0);
-    const cloudinaryUrlRef = useRef<string | null>(null);
     const isRetryingRef = useRef(false);
-    const predictionIdRef = useRef<string | null>(null);
 
     /* Custom Hooks */
-
     const {
         status,
         setStatus,
-        cloudinaryOriginalUrl,
         setCloudinaryOriginalUrl,
         enhancedImageUrl,
         setEnhancedImageUrl,
         setPredictionId,
-        finalResponse,
-        setFinalResponse,
-        startTransformingImage,
+        cloudinaryUrlRef,
+        predictionIdRef,
+        handleProcessingImage,
     } = useImageProcessing();
 
     const { pollPredictionStatus, savePredictionData } =
         usePredictionHandling();
-    const { handleProcessingImage } = useImageTransformingHandler();
 
     /* To remove the image from the state */
     const handleRemoveImage = () => {
@@ -121,13 +122,8 @@ export default function ImageTransformer() {
 
             const args = {
                 uploadCareCdnUrl,
-                cloudinaryOriginalUrl,
-                setCloudinaryOriginalUrl,
-                setStatus,
                 settings,
                 setSettings,
-                startTransformingImage,
-                cloudinaryUrlRef,
             };
 
             /* upload the image to cloudinary and start the prediction */
